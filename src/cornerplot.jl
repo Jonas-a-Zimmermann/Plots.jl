@@ -12,7 +12,7 @@ recipetype(::Val{:cornerplot}, args...) = CornerPlot(args)
             "Requested to plot $N variables in $(N^2) subplots!  Likely, the first input needs transposing, otherwise increase maxvariables.",
         )
     end
-
+    
     # k is the number of rows/columns to hide
     k = compact ? 1 : 0
 
@@ -63,16 +63,19 @@ recipetype(::Val{:cornerplot}, args...) = CornerPlot(args)
     nsamples = size(mat, 1)
     markersize --> clamp(pltarea * 800 / sqrt(nsamples), 1, 10)
     markeralpha --> clamp(pltarea * 100 / nsamples^0.42, 0.005, 0.4)
-
+    xlimitbuffer = Array{Union{Nothing, Tuple{Float64, Float64}}}(nothing, N)
+    ylimitbuffer = Array{Union{Nothing, Tuple{Float64, Float64}}}(nothing, N)
     # histograms in the right column
     for i = 1:N
         compact && i == 1 && continue
         @series begin
+            vi = view(mat, :, i)
             orientation := :h
             seriestype  := :histogram
             subplot     := indices[i + 1 - k, n]
             grid        := false
-            view(mat, :, i)
+            ylims --> (ylimitbuffer[i] === nothing ? ylimitbuffer[i] = extrema(vi).*1.05 : ylimitbuffer[i])
+            vi
         end
     end
 
@@ -80,10 +83,12 @@ recipetype(::Val{:cornerplot}, args...) = CornerPlot(args)
     for j = 1:N
         compact && j == N && continue
         @series begin
+            vj = view(mat, :, j)
             seriestype := :histogram
             subplot    := indices[1, j]
             grid       := false
-            view(mat, :, j)
+            xlims --> (xlimitbuffer[j] === nothing ? xlimitbuffer[j] = extrema(vj).*1.05 : xlimitbuffer[j])
+            vj
         end
     end
 
@@ -91,7 +96,7 @@ recipetype(::Val{:cornerplot}, args...) = CornerPlot(args)
     for i = 1:N
         vi = view(mat, :, i)
         for j = 1:N
-            # only the lower triangle
+            # only the lower trianglee
             if compact && i <= j
                 continue
             end
@@ -112,6 +117,8 @@ recipetype(::Val{:cornerplot}, args...) = CornerPlot(args)
                 markercolor := grad[0.5 + 0.5C[i, j]]
                 smooth --> true
                 markerstrokewidth --> 0
+                xlims --> (xlimitbuffer[j] === nothing ? xlimitbuffer[j] = extrema(vj).*1.05 : xlimitbuffer[j])
+                ylims --> (ylimitbuffer[i] === nothing ? ylimitbuffer[i] = extrema(vi).*1.05 : ylimitbuffer[i])
                 vj, vi
             end
         end
